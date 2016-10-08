@@ -28,29 +28,29 @@ printSimpleStruct (s1 ## s2 ## (Right s3) ## xs ## b1 ## b2 ## prf) = do
 
 sendResponse : { [STDIO, TCPSERVERCLIENT (ClientConnected)] ==>
                  [STDIO, TCPSERVERCLIENT ()] } Eff IO ()
-sendResponse = do 
+sendResponse = do
   OperationSuccess _ <- tcpWritePacket simpleResponse simpleResponseInstance
     | RecoverableError _ => sendResponse
-    | FatalError err => do putStr ("Fatal error: " ++ (show err)) 
+    | FatalError err => do putStr ("Fatal error: " ++ (show err))
                            tcpFinalise
-    | ConnectionClosed => return ()
-  putStr "Sent response!\n" 
-  tcpClose 
+    | ConnectionClosed => pure ()
+  putStr "Sent response!\n"
+  tcpClose
 
 
 clientTask' : { [STDIO, TCPSERVERCLIENT (ClientConnected)] ==>
                 [STDIO, TCPSERVERCLIENT ()] } Eff IO ()
-clientTask' = do 
+clientTask' = do
   OperationSuccess m_packet <- tcpReadPacket simpleStruct 1024
     | RecoverableError err => clientTask'
     | FatalError err => do putStr ("Fatal error: " ++ (show err) ++ "\n")
                            tcpFinalise
-    | ConnectionClosed => return ()
+    | ConnectionClosed => pure ()
   case m_packet of
        Just (packet, len) => do
          printSimpleStruct packet
          sendResponse
-       Nothing => do 
+       Nothing => do
          putStr "Error decoding packet"
          tcpClose
 
@@ -60,19 +60,19 @@ clientTask = new clientTask'
 packetServer : Port -> { [TCPSERVER (), STDIO] } Eff IO ()
 packetServer p = do
   OperationSuccess _ <- bind Nothing p
-    | RecoverableError err => return ()
+    | RecoverableError err => pure ()
     | FatalError err => do (putStr $ "Error binding: " ++ (show err))
-                           return ()
-    | ConnectionClosed => return ()
-  OperationSuccess _ <- listen 
+                           pure ()
+    | ConnectionClosed => pure ()
+  OperationSuccess _ <- listen
     | RecoverableError _ => closeBound
     | FatalError err => do
         putStr ("Error listening: " ++ (show err))
         finaliseServer
-    | ConnectionClosed => return ()
+    | ConnectionClosed => pure ()
   OperationSuccess _ <- accept clientTask
     | RecoverableError _ => closeListening
-    | FatalError err => do 
+    | FatalError err => do
         putStr ("Error accepting client: " ++ (show err))
         finaliseServer
   closeListening

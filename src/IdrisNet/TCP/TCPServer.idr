@@ -5,7 +5,7 @@ import IdrisNet.PacketLang
 import Network.Socket
 import IdrisNet.TCP.TCPCommon
 
-%access public
+%access public export
 
 -- Closed -> Listening
 
@@ -112,10 +112,13 @@ tcpReadPacket pl len = call (ReadPacket pl len)
 
 -- The type of client programs. Starts in ClientConnected, but must end unconnected.
 ClientProgram : (effl: List EFFECT) -> Type -> Type
-ClientProgram effl t = {TCPSERVERCLIENT (ClientConnected) :: effl ==>
-                        TCPSERVERCLIENT () :: effl} Eff t
+ClientProgram effl t =
+    Effects.TransEff.Eff
+        t
+        (TCPSERVERCLIENT ClientConnected :: effl)
+        (TCPSERVERCLIENT () :: effl)
 
-instance Handler TCPServerClient IO where
+implementation Handler TCPServerClient IO where
   handle (CC sock addr) (WriteString str) k = do
     send_res <- send sock str
     case send_res of
@@ -184,9 +187,7 @@ data TCPServer : Effect where
   Listen : { ServerBound ==> {result} interpListenRes result }
            TCPServer (SocketOperationRes ())
   -- Accept
-  Accept :  ClientProgram effl t -> (Env IO effl) ->
-            { ServerListening ==> {result} interpOperationRes result }
-            TCPServer (SocketOperationRes t)
+  Accept :  ClientProgram effl t -> (Env IO effl) -> TCPServer (SocketOperationRes t) ServerListening (\result => interpOperationRes result)
   ForkAccept : ClientProgram effl () -> (Env IO effl) ->
                { ServerListening ==> {result} interpOperationRes result }
                TCPServer (SocketOperationRes ())
@@ -215,10 +216,13 @@ listen : { [TCPSERVER (ServerBound)] ==> {result}
 listen = call Listen
 
 -- Accepts a new client, and runs the given client program
-accept : (ClientProgram effl t) -> (Env IO effl) ->
-       { [TCPSERVER (ServerListening)] ==> {result}
-         [TCPSERVER (interpOperationRes result)]}
-       Eff (SocketOperationRes t)
+accept
+    : (ClientProgram effl t)
+    -> (Env IO effl)
+    -> Eff
+          (SocketOperationRes t)
+          [TCPSERVER (ServerListening)]
+          (\result => [TCPSERVER (interpOperationRes result)])
 accept prog env = call (Accept prog env)
 
 -- Accepts in a different thread
@@ -241,7 +245,7 @@ finaliseServer : { [TCPSERVER (ServerError)] ==> [TCPSERVER ()] } Eff ()
 finaliseServer = call Finalise
 
 {- Handler Functions -}
-instance Handler TCPServer IO where
+implementation Handler TCPServer IO where
   handle () (TCPServerBind sa p) k = do
     sock_res <- socket AF_INET Stream 0
     case sock_res of
@@ -284,7 +288,7 @@ instance Handler TCPServer IO where
            else
              k (FatalError err) (SE sock)
          Right (client_sock, addr) => do
-           fork (runInit ((CC client_sock addr) :: env) prog *> return ())
+           fork (runInit ((CC client_sock addr) :: env) prog *> pure ())
            k (OperationSuccess ()) (SL sock)
 
   handle (SB sock) (CloseBound) k =

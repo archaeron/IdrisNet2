@@ -18,14 +18,14 @@ receive = do
     | RecoverableError _ => receive
     | FatalError err => do putStr ("Error receiving: " ++ (show err))
                            tcpFinalise
-    | ConnectionClosed => return ()
+    | ConnectionClosed => pure ()
   -- Echo
   OperationSuccess _ <- tcpSend $ str
     | RecoverableError err => do putStr ("Error sending: " ++ (show err))
-                                 tcpClose 
+                                 tcpClose
     | FatalError err => do putStr ("Error sending: " ++ (show err))
                            tcpFinalise
-    | ConnectionClosed => return ()
+    | ConnectionClosed => pure ()
   receive
 
 
@@ -37,7 +37,7 @@ forkServerLoop = do
        | RecoverableError _ => forkServerLoop
        | FatalError err => do putStr ("Error accepting: " ++ (show err))
                               finaliseServer
-       | ConnectionClosed => return ()
+       | ConnectionClosed => pure ()
   forkServerLoop
 
 serverLoop : { [STDIO, TCPSERVER (ServerListening)] ==>
@@ -48,28 +48,28 @@ serverLoop = do
     | RecoverableError _ => serverLoop
     | FatalError err => do putStr ("Error accepting: " ++ (show err))
                            finaliseServer
-    | ConnectionClosed => return ()
+    | ConnectionClosed => pure ()
   serverLoop
 
 setupServer : Port -> Bool ->
               { [STDIO, TCPSERVER ()] } Eff ()
 setupServer port do_fork = do
-  putStr "Binding\n" 
+  putStr "Binding\n"
   OperationSuccess _ <- bind Nothing port
-    | RecoverableError _ => return ()
-    | FatalError err => do putStr ("Error binding: " ++ (show err) ++ "\n") 
-                           return ()
-    | ConnectionClosed => return ()
+    | RecoverableError _ => pure ()
+    | FatalError err => do putStr ("Error binding: " ++ (show err) ++ "\n")
+                           pure ()
+    | ConnectionClosed => pure ()
   putStr "Bound\n"
   OperationSuccess _ <- listen
-    | RecoverableError err => do putStr ("Recoverable error: " ++ (show err)) 
+    | RecoverableError err => do putStr ("Recoverable error: " ++ (show err))
                                  closeBound
-    | FatalError err => do putStr ("Error binding: " ++ show err) 
+    | FatalError err => do putStr ("Error binding: " ++ show err)
                            finaliseServer
-    | ConnectionClosed => return ()
+    | ConnectionClosed => pure ()
   putStr "Listening\n"
   if do_fork then forkServerLoop else serverLoop
 
 
 main : IO ()
-main = run (setupServer 1234 True) 
+main = run (setupServer 1234 True)

@@ -6,11 +6,11 @@ import IdrisNet.PacketLang
 import Network.Socket
 import IdrisNet.UDP.UDPCommon
 
-%access public
+%access public export
 
 data UDPClient : Effect where
-  UDPWriteString :  SocketAddress -> 
-                    Port -> 
+  UDPWriteString :  SocketAddress ->
+                    Port ->
                     String ->
                     { () }
                     UDPClient (UDPRes ByteLength)
@@ -19,8 +19,8 @@ data UDPClient : Effect where
                     { () }
                     UDPClient (UDPRes (UDPAddrInfo, String, ByteLength))
 
-  UDPWritePacket :  SocketAddress -> 
-                    Port -> 
+  UDPWritePacket :  SocketAddress ->
+                    Port ->
                     (pl : PacketLang) ->
                     (mkTy pl) ->
                     { () }
@@ -36,15 +36,15 @@ UDPCLIENT : EFFECT
 UDPCLIENT = MkEff () UDPClient
 
 -- Writes a string to the given remote host
-udpWriteString : SocketAddress -> Port -> String -> 
+udpWriteString : SocketAddress -> Port -> String ->
                  { [UDPCLIENT] }
                  Eff (UDPRes ByteLength)
 udpWriteString sa p s = call (UDPWriteString sa p s)
 
 
 -- Reads a string, returning the address, data, and length
-udpReadString : ByteLength -> 
-                { [UDPCLIENT] } 
+udpReadString : ByteLength ->
+                { [UDPCLIENT] }
                 Eff (UDPRes (UDPAddrInfo, String, ByteLength))
 udpReadString len = call (UDPReadString len)
 
@@ -61,7 +61,7 @@ udpWritePacket sa p pl pckt = call (UDPWritePacket sa p pl pckt)
 udpReadPacket : (pl : PacketLang) ->
                 Length ->
                 { [UDPCLIENT] }
-                Eff (UDPRes (UDPAddrInfo, Maybe (mkTy pl, ByteLength))) 
+                Eff (UDPRes (UDPAddrInfo, Maybe (mkTy pl, ByteLength)))
 udpReadPacket pl len = call (UDPReadPacket pl len)
 
 -- Saves us repeating ourselves in the handler...
@@ -71,21 +71,21 @@ withSocket : (a : Type) ->
 withSocket _ fn = do
   sock_res <- socket AF_INET Datagram 0
   case sock_res of
-    Left err => return (UDPFailure err)
+    Left err => pure (UDPFailure err)
     Right sock => fn sock
 
-instance Handler UDPClient IO where
+implementation Handler UDPClient IO where
   handle () (UDPWriteString sa p str) k = do
     res <- withSocket ByteLength (\sock => do
       send_res <- sendTo sock sa p str
       case send_res of
         Left err =>
           if err == EAGAIN then
-            return $ UDPRecoverableError err
+            pure $ UDPRecoverableError err
           else
-            return $ UDPFailure err
-        Right bl => return $ UDPSuccess bl)
-    k res ()   
+            pure $ UDPFailure err
+        Right bl => pure $ UDPSuccess bl)
+    k res ()
 
   handle () (UDPReadString bl) k = do
     res <- withSocket (UDPAddrInfo, String, ByteLength) (\sock => do
@@ -93,9 +93,9 @@ instance Handler UDPClient IO where
       case recv_res of
         Left err =>
           if err == EAGAIN then
-            return (UDPRecoverableError err)   
-          else return (UDPFailure err) 
-        Right (addr, str, bl) => return $ UDPSuccess (addr, str, bl))
+            pure (UDPRecoverableError err)
+          else pure (UDPFailure err)
+        Right (addr, str, bl) => pure $ UDPSuccess (addr, str, bl))
     k res ()
 
   handle () (UDPWritePacket sa p pl dat) k = do
@@ -103,12 +103,12 @@ instance Handler UDPClient IO where
       (pckt, len) <- marshal pl dat
       send_res <- sendToBuf sock sa p pckt len
       case send_res of
-           Left err => 
+           Left err =>
             if err == EAGAIN then
-              return (UDPRecoverableError err) 
+              pure (UDPRecoverableError err)
             else
-              return (UDPFailure err)
-           Right bl => return (UDPSuccess bl))
+              pure (UDPFailure err)
+           Right bl => pure (UDPSuccess bl))
     k res ()
 
   handle () (UDPReadPacket pl len) k = do
@@ -118,15 +118,14 @@ instance Handler UDPClient IO where
       case recv_res of
            Left err =>
              if err == EAGAIN then
-               return (UDPRecoverableError err) 
+               pure (UDPRecoverableError err)
              else
-               return (UDPFailure err) 
+               pure (UDPFailure err)
            Right (addr, bl) => do
              res <- unmarshal pl ptr bl
              sock_free ptr
              -- The UDPSuccess depends on the actual network-y
              -- part, not the unmarshalling. If the unmarshalling fails,
              -- we still keep the connection open.
-             return (UDPSuccess (addr, res) ))
+             pure (UDPSuccess (addr, res) ))
     k res ()
-

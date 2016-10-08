@@ -33,14 +33,14 @@ statusUpdate : PacketLang
 statusUpdate = with PacketLang do
   is_ball <- bool -- True if ball update, false if paddle
   p_if is_ball then ballUpdate else paddleUpdate
- 
+
 mkMessage : (mkTy statusUpdate) -> GameMessage
-mkMessage (True ## x ## y ## xv_neg ## xv ## yv_neg ## yv ## stuck ## left) = 
+mkMessage (True ## x ## y ## xv_neg ## xv ## yv_neg ## yv ## stuck ## left) =
     UpdateRemoteBallPos $ MkPongBall (val x, val y) xv' yv' stuck left
   where xv' = if xv_neg then ((val xv) * (-1)) else (val xv)
         yv' = if yv_neg then ((val yv) * (-1)) else (val yv)
 
-mkMessage (False ## up ## down ## x ## y) = UpdateRemotePaddle up down (val x) (val y) 
+mkMessage (False ## up ## down ## x ## y) = UpdateRemotePaddle up down (val x) (val y)
 
 sendBallUpdate : { [STATE GameState, STDIO, UDPCLIENT] } Eff Bool
 sendBallUpdate = do
@@ -49,11 +49,11 @@ sendBallUpdate = do
     let p = pongRemotePort st
     case m_pckt (pongBall st) of
       Just pckt => do IdrisNet.UDP.UDPClient.udpWritePacket sa p statusUpdate pckt
-                      return True
-      Nothing => return False
+                      pure True
+      Nothing => pure False
   where m_pckt : PongBall -> (Maybe (mkTy statusUpdate))
-        m_pckt pb = with Monad do 
-                       let ((x, y), xv, yv) = 
+        m_pckt pb = with Monad do
+                       let ((x, y), xv, yv) =
                          (pongBallPos pb, pongBallXVel pb, pongBallYVel pb)
                        b_x <- mkBounded 32 x
                        b_y <- mkBounded 32 y
@@ -61,7 +61,7 @@ sendBallUpdate = do
                        b_xv <- mkBounded 32 (abs xv)
                        let neg_yv = yv < 0
                        b_yv <- mkBounded 32 (abs yv)
-                       return (True ## b_x ## b_y ## neg_xv ## b_xv ## 
+                       pure (True ## b_x ## b_y ## neg_xv ## b_xv ##
                                neg_yv ## b_yv ## (pongBallStuck pb) ## (pongBallHitLeft pb))
 
 sendPaddleUpdate : { [STATE GameState, UDPCLIENT] } Eff Bool
@@ -73,11 +73,11 @@ sendPaddleUpdate = do
     let down_pressed = pongIsDownPressed st
     case m_pckt up_pressed down_pressed !getLocalPaddlePos of
       Just pckt => do IdrisNet.UDP.UDPClient.udpWritePacket sa p statusUpdate pckt
-                      return True
-      Nothing => return False
+                      pure True
+      Nothing => pure False
   where m_pckt : Bool -> Bool -> (Int, Int) -> (Maybe (mkTy statusUpdate))
-        m_pckt up_pressed down_pressed (x, y) = with Monad do 
+        m_pckt up_pressed down_pressed (x, y) = with Monad do
           b_x <- mkBounded 32 x
           b_y <- mkBounded 32 y
-          return (False ## up_pressed ## down_pressed ## b_x ## b_y)
+          pure (False ## up_pressed ## down_pressed ## b_x ## b_y)
 

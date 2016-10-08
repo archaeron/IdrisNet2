@@ -6,7 +6,7 @@ import IdrisNet.TCP.TCPCommon
 import Network.Socket
 import Effects
 
-%access public
+%access public export
 
 data ClientConnected : Type where
   CC : Socket -> ClientConnected
@@ -30,8 +30,8 @@ interpOperationRes ConnectionClosed = ()
 
 -- TCP Client Effect
 data TCPClient : Effect where
-  Connect      : SocketAddress -> Port -> {() ==> {result} interpConnectRes result}
-                                          TCPClient (SocketOperationRes Socket)
+  -- Connect      : SocketAddress -> Port -> TCPClient (SocketOperationRes Socket) [] (\result => [interpConnectRes result])
+  Connect      : SocketAddress -> Port -> {() ==> {result} interpConnectRes result} TCPClient (SocketOperationRes Socket)
   Close        : { ClientConnected ==> ()} TCPClient ()
   Finalise     : { ErrorState ==> () } TCPClient ()
   WriteString  : String -> { ClientConnected ==> {result} interpOperationRes result}
@@ -101,7 +101,7 @@ tcpReadPacket : (pl : PacketLang) ->
                 Eff (SocketOperationRes (Maybe (mkTy pl, ByteLength)))
 tcpReadPacket pl len = call (ReadPacket pl len)
 
-instance Handler TCPClient IO where
+implementation Handler TCPClient IO where
   handle () (Connect sa port) k = do
     -- Firstly create a socket
     sock_res <- socket AF_INET Stream 0

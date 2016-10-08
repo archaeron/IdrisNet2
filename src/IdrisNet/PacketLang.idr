@@ -1,9 +1,9 @@
-module IdrisNet2.PacketLang 
+module IdrisNet2.PacketLang
 import Language.Reflection
 import Data.So
 import Data.Vect
 
-%access public
+%access public export
 
 -- Propositions about data
 data Proposition : Type where
@@ -38,10 +38,10 @@ val : Bounded i -> Int
 val (BInt i p) = i
 
 mkBounded : (bound : Nat) -> Int -> Maybe (Bounded bound)
-mkBounded b i_n = 
+mkBounded b i_n =
   case choose (i_n < (pow 2 b)) of
       Left yes => Just (BInt i_n yes)
-      Right _ => Nothing 
+      Right _ => Nothing
 
 NonZero : Nat -> Type
 NonZero n = n `GT` 0
@@ -64,9 +64,9 @@ data Chunk : Type where
   -- Custom chunk of binary data.
   -- Can be used to make cleverer things without having
   -- to add to the core PL each time.
-  Decodable : (n : Nat) -> 
-              (t : Type) -> 
-              (Bounded n -> Maybe t) -> 
+  Decodable : (n : Nat) ->
+              (t : Type) ->
+              (Bounded n -> Maybe t) ->
               (t -> Bounded n) -> Chunk
 
 infixl 5 //
@@ -90,7 +90,7 @@ mutual
 -- Decode chunks into Idris types
 -- TODO <<
 chunkTy : Chunk -> Type
-chunkTy (Bit w p) = Bounded w 
+chunkTy (Bit w p) = Bounded w
 chunkTy CString = String
 chunkTy (LString i) = String
 chunkTy (Prop p) = propTy p
@@ -108,7 +108,7 @@ mutual
     LISTN : (n : Nat) -> PacketLang -> PacketLang
     NULL : PacketLang -- Sometimes, we want to signify that there's nothing there
     (>>=) : (p : PacketLang) -> (mkTy p -> PacketLang) -> PacketLang
-    
+
   -- Packet language decoding
   mkTy : PacketLang -> Type
   mkTy (CHUNK c) = chunkTy c
@@ -125,7 +125,7 @@ bitLength : (pl : PacketLang) -> mkTy pl -> Length
 chunkLength : (c : Chunk) -> chunkTy c -> Length
 chunkLength (Bit w p) _ = natToInt w
 chunkLength CBool _ = 1
-chunkLength CString str = 8 * ((strLen str) + 1) 
+chunkLength CString str = 8 * ((strLen str) + 1)
 chunkLength (LString len) str = 8 * (natToInt len)
 chunkLength (Prop _) p = 0 -- Not written to the packet
 chunkLength (Decodable n _ _ _) _ = natToInt n
@@ -163,7 +163,7 @@ syntax lstring [n] = (CHUNK (LString n))
 syntax cstring = (CHUNK (CString))
 syntax listn [n] [t] = (LISTN n t)
 syntax list [t] = (LIST t)
-syntax p_if [b1] then [b2] else [b3] = (IF b1 b2 b3)
+syntax p_if [b1] p_then [b2] p_else [b3] = (IF b1 b2 b3)
 syntax p_either [t1] [t2] = (t1 // t2)
 syntax bool = (CHUNK (CBool))
 syntax prop [p] = (CHUNK (Prop p))

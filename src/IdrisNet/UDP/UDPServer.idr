@@ -4,7 +4,8 @@ import IdrisNet.Packet
 import IdrisNet.PacketLang
 import Network.Socket
 import IdrisNet.UDP.UDPCommon
-%access public
+
+%access public export
 
 {- UDP server sockets need to *bind* to a port in order to receive,
  - but don't need to listen or accept. This really simplifies the

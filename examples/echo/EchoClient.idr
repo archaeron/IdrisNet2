@@ -5,33 +5,33 @@ import IdrisNet.TCP.TCPCommon
 import Effect.StdIO
 import Network.Socket
 
-clientLoop : ByteLength -> 
-               { [TCPCLIENT (ClientConnected), STDIO] ==> 
-                 [TCPCLIENT (), STDIO]} 
+clientLoop : ByteLength ->
+               { [TCPCLIENT (ClientConnected), STDIO] ==>
+                 [TCPCLIENT (), STDIO]}
                Eff ()
 clientLoop len = do
   input <- getStr
-  if (input == "bye!\n") then tcpClose 
+  if (input == "bye!\n") then tcpClose
   else do
     OperationSuccess _ <- tcpSend input
       | RecoverableError err => do putStr ("Error sending: " ++ (show err))
                                    tcpClose
       | FatalError err => do putStr ("Error sending: " ++ (show err))
                              tcpFinalise
-      | ConnectionClosed => return ()  
+      | ConnectionClosed => pure ()
     OperationSuccess (str, len') <- tcpRecv len
       | RecoverableError err => do putStr ("Error receiving: " ++ (show err))
                                    tcpClose
       | FatalError err => do putStr ("Error receiving: " ++ (show err))
                              tcpFinalise
-      | ConnectionClosed => return () 
+      | ConnectionClosed => pure ()
     putStr ("Received: " ++ str ++ "\n")
-    clientLoop len 
+    clientLoop len
 
 
-echoClient : SocketAddress -> 
-             Port -> 
-             { [TCPCLIENT (), STDIO] ==> 
+echoClient : SocketAddress ->
+             Port ->
+             { [TCPCLIENT (), STDIO] ==>
                [TCPCLIENT (), STDIO]} Eff ()
 echoClient sa port = do
   OperationSuccess _ <- tcpConnect sa port

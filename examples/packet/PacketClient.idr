@@ -22,10 +22,10 @@ recvResponse = do
   OperationSuccess m_packet <- tcpReadPacket simpleResponse 1024
     | RecoverableError err => do putStr ("Error: " ++ (show err) ++ "\n")
                                  tcpClose
-    | FatalError err => do putStr ("Error: " ++ (show err) ++ "\n") 
+    | FatalError err => do putStr ("Error: " ++ (show err) ++ "\n")
                            tcpFinalise
-    | ConnectionClosed => return ()
-  case m_packet of 
+    | ConnectionClosed => pure ()
+  case m_packet of
     Just (pckt, len) => do printRecvPacket pckt
                            tcpClose
     Nothing => do putStr "Error decoding packet"
@@ -35,13 +35,13 @@ sendAndRecv : { [STDIO, TCPCLIENT (ClientConnected)] ==>
                 [STDIO, TCPCLIENT ()] } Eff IO ()
 sendAndRecv = do
   OperationSuccess _ <- tcpWritePacket simpleStruct simpleStructInstance
-    | RecoverableError err => do 
+    | RecoverableError err => do
          putStr ("Error: " ++ (show err) ++ "\n")
          tcpClose
     | FatalError err => do
          putStr ("Fatal error sending packet: " ++ (show err) ++ "\n")
          tcpFinalise
-    | ConnectionClosed => return ()
+    | ConnectionClosed => pure ()
   recvResponse
 
 clientTask : SocketAddress -> Port -> { [STDIO, TCPCLIENT ()] } Eff IO ()
@@ -50,7 +50,7 @@ clientTask sa p = do
     | RecoverableError _ => clientTask sa p
     | FatalError err =>
          putStr ("Fatal error connecting: " ++ (show err) ++ "\n")
-    | ConnectionClosed => return ()
+    | ConnectionClosed => pure ()
   sendAndRecv
 
 main : IO ()
